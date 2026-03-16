@@ -11,28 +11,7 @@ namespace Electro_Fih
     public partial class MainPage : Form
     {
         private int CurrentUserId;
-
         private HttpClient client;
-
-        public MainPage()
-        {
-            InitializeComponent();
-            this.FormClosed += MainPage_FormClosed;
-            SetupUI();
-            this.DoubleBuffered = true;
-
-            client = new HttpClient
-            {
-                BaseAddress = new Uri("http://100.122.255.19:5229/")
-            };
-        }
-
-        // Called after login
-        public void SetUserId(int userId)
-        {
-            CurrentUserId = userId;
-            _ = LoadHousesFromApi();
-        }
 
         private Panel contentPanel;
 
@@ -44,6 +23,26 @@ namespace Electro_Fih
         private Button btnMasodikHaz;
         private Button btnHarmadikHaz;
         private Button btnNegyedikHaz;
+
+        public MainPage()
+        {
+            client = new HttpClient
+            {
+                BaseAddress = new Uri("http://100.122.255.19:5229/")
+            };
+
+            InitializeComponent();
+            this.FormClosed += MainPage_FormClosed;
+            SetupUI();
+            this.DoubleBuffered = true;
+        }
+
+        public void SetUserId(int userId)
+        {
+            CurrentUserId = userId;
+            _ = LoadHousesFromApi();
+            LoadHome();
+        }
 
         private void SetupUI()
         {
@@ -81,8 +80,11 @@ namespace Electro_Fih
             };
 
             btnHome = CreateNavButton("Házak");
-            btnSettings = CreateNavButton("Beállítasok");
+            btnHome.Click += (s, e) => LoadHome();
+
+            btnSettings = CreateNavButton("Beállítások");
             btnSettings.Click += btnSettings_Click;
+
             btnLogOut = CreateNavButton("Kijelentkezés");
             btnLogOut.Click += btnLogOut_Click;
 
@@ -92,12 +94,10 @@ namespace Electro_Fih
             btnNegyedikHaz = ShowHazButton("");
 
             btnHome.Top = 10;
-
             btnElsoHaz.Top = 60;
             btnMasodikHaz.Top = 110;
             btnHarmadikHaz.Top = 160;
             btnNegyedikHaz.Top = 210;
-
             btnSettings.Top = 850;
             btnLogOut.Top = 900;
 
@@ -117,8 +117,6 @@ namespace Electro_Fih
             Controls.Add(contentPanel);
             Controls.Add(sidePanel);
             Controls.Add(topPanel);
-
-            LoadHome();
         }
 
         private Button CreateNavButton(string text)
@@ -152,78 +150,95 @@ namespace Electro_Fih
             };
         }
 
-        private void LoadHome()
+        private async void LoadHome()
         {
             contentPanel.Controls.Clear();
 
-            HomeUserControl home = new HomeUserControl();
-            home.Dock = DockStyle.Fill;
+            HomeUserControl home = new HomeUserControl(CurrentUserId)
+            {
+                Dock = DockStyle.Fill
+            };
+
+            bool hasHouse = false;
+
+            try
+            {
+                var response = await client.GetAsync($"api/houses/user/{CurrentUserId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var houses = await response.Content.ReadFromJsonAsync<List<HouseResponse>>();
+                    if (houses != null && houses.Count > 0)
+                    {
+                        hasHouse = true;
+                        Button[] houseButtons = { btnElsoHaz, btnMasodikHaz, btnHarmadikHaz, btnNegyedikHaz };
+                        for (int i = 0; i < houseButtons.Length; i++)
+                        {
+                            houseButtons[i].Visible = false;
+                            houseButtons[i].Click -= HouseButton_Click;
+                        }
+                        for (int i = 0; i < houses.Count && i < houseButtons.Length; i++)
+                        {
+                            houseButtons[i].Text = houses[i].houseName;
+                            houseButtons[i].Tag = houses[i].id;
+                            houseButtons[i].Visible = true;
+                            houseButtons[i].Click += HouseButton_Click;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                MessageBox.Show("Failed to load houses.");
+            }
+
+            home.SetHouseState(hasHouse);
 
             home.HazLetrehozva += async (hazNev) =>
             {
                 await SaveHouses(CurrentUserId, hazNev);
                 await LoadHousesFromApi();
+                LoadHome();
             };
 
             contentPanel.Controls.Add(home);
         }
 
-        private void LoadSettings()
+        private void HouseButton_Click(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+            if (btn == null) return;
+
+            int houseId = Convert.ToInt32(btn.Tag);
+            string houseName = btn.Text;
+
+            OpenHouseControl(houseId, houseName);
+        }
+
+        private void OpenHouseControl(int houseId, string houseName)
         {
             contentPanel.Controls.Clear();
 
-            SettingsUserControl settings = new SettingsUserControl();
-            settings.Dock = DockStyle.Fill;
-            contentPanel.Controls.Add(settings);
 
-            settings.OnDeleteProfileRequested += async () =>
+            FirstHouseControl control = new FirstHouseControl()
             {
-                await DeleteProfile();
+                Dock = DockStyle.Fill
             };
-        }
 
-        private void LogOut()
-        {
-            new LoginPage().Show();
-            Hide();
+            control.LoadHouseData(houseId, houseName);
+            contentPanel.Controls.Add(control);
         }
 
         private async Task LoadHousesFromApi()
         {
-            if (CurrentUserId == 0)
-                return;
-
-            Button[] houseButtons =
-            {
-                btnElsoHaz,
-                btnMasodikHaz,
-                btnHarmadikHaz,
-                btnNegyedikHaz
-            };
-
-            foreach (var btn in houseButtons)
-            {
-                btn.Visible = false;
-                btn.Text = "";
-            }
+            if (CurrentUserId == 0) return;
 
             try
             {
                 var response = await client.GetAsync($"api/houses/user/{CurrentUserId}");
-
-                if (!response.IsSuccessStatusCode)
-                    return;
+                if (!response.IsSuccessStatusCode) return;
 
                 var houses = await response.Content.ReadFromJsonAsync<List<HouseResponse>>();
-
-                if (houses == null)
-                    return;
-
-                for (int i = 0; i < houses.Count && i < houseButtons.Length; i++)
-                {
-                    houseButtons[i].Text = houses[i].houseName;
-                    houseButtons[i].Visible = true;
-                }
+                if (houses == null) return;
             }
             catch
             {
@@ -235,16 +250,8 @@ namespace Electro_Fih
         {
             try
             {
-                var payload = new
-                {
-                    userId = userId,
-                    houseName = hazNev,
-                    posX = 0f,
-                    posY = 0f
-                };
-
+                var payload = new { userId, houseName = hazNev, posX = 0f, posY = 0f };
                 var response = await client.PostAsJsonAsync("api/houses", payload);
-
                 if (!response.IsSuccessStatusCode)
                 {
                     string error = await response.Content.ReadAsStringAsync();
@@ -257,6 +264,20 @@ namespace Electro_Fih
             }
         }
 
+        private void LoadSettings()
+        {
+            contentPanel.Controls.Clear();
+            SettingsUserControl settings = new SettingsUserControl { Dock = DockStyle.Fill };
+            contentPanel.Controls.Add(settings);
+            settings.OnDeleteProfileRequested += async () => { await DeleteProfile(); };
+        }
+
+        private void LogOut()
+        {
+            new LoginPage().Show();
+            Hide();
+        }
+
         private void MainPage_FormClosed(object sender, FormClosedEventArgs e)
         {
             Application.Exit();
@@ -266,26 +287,11 @@ namespace Electro_Fih
         {
             try
             {
-                HttpResponseMessage response =
-                    await client.DeleteAsync($"api/auth/user/{CurrentUserId}");
-
-                string responseText = await response.Content.ReadAsStringAsync();
-
+                var response = await client.DeleteAsync($"api/auth/user/{CurrentUserId}");
                 if (response.IsSuccessStatusCode)
                 {
-                    MessageBox.Show("User deleted");
-
-                    this.Invoke((MethodInvoker)delegate
-                    {
-                        new LoginPage().Show();
-                        this.Hide();
-                    });
-
-                    //Application.Exit();
-                }
-                else
-                {
-                    MessageBox.Show($"Delete failed\n{response.StatusCode}\n{responseText}");
+                    new LoginPage().Show();
+                    Hide();
                 }
             }
             catch (Exception ex)
@@ -304,5 +310,5 @@ namespace Electro_Fih
             public int userId { get; set; }
             public string houseName { get; set; }
         }
-    }
-}
+    } 
+}   // ez naon hosszu lett

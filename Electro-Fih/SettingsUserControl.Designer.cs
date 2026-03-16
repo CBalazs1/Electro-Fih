@@ -37,7 +37,7 @@
             label1.AutoSize = true;
             label1.Font = new Font("SF Mono", 25.8000011F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label1.ForeColor = Color.White;
-            label1.Location = new Point(661, 0);
+            label1.Location = new Point(617, 0);
             label1.Name = "label1";
             label1.Size = new Size(320, 53);
             label1.TabIndex = 1;
@@ -54,14 +54,14 @@
             profileDeletionButton.FlatStyle = FlatStyle.Flat;
             profileDeletionButton.Font = new Font("SF Mono", 13.8F, FontStyle.Bold, GraphicsUnit.Point, 0);
             profileDeletionButton.ForeColor = Color.Red;
-            profileDeletionButton.Location = new Point(890, 790);
+            profileDeletionButton.Location = new Point(617, 790);
             profileDeletionButton.Name = "profileDeletionButton";
             profileDeletionButton.Size = new Size(188, 50);
             profileDeletionButton.TabIndex = 2;
             profileDeletionButton.Text = "Fiók törlése";
             profileDeletionButton.TextColor = Color.Red;
             profileDeletionButton.UseVisualStyleBackColor = false;
-            profileDeletionButton.Click += this.profileDeletionButton_Click;
+            profileDeletionButton.Click += profileDeletionButton_Click;
             // 
             // SettingsUserControl
             // 
@@ -71,7 +71,7 @@
             Controls.Add(profileDeletionButton);
             Controls.Add(label1);
             Name = "SettingsUserControl";
-            Size = new Size(1081, 843);
+            Size = new Size(1638, 843);
             Load += SettingsUserControl_Load;
             ResumeLayout(false);
             PerformLayout();
