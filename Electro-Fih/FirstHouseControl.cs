@@ -1,4 +1,4 @@
-﻿using Electro_Fih.RJControls;
+using Electro_Fih.RJControls;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -290,8 +290,8 @@ namespace Electro_Fih
             {
                 ApplianceName = appliance.appliance_name,
                 Wattage = appliance.wattage,
-                UserId = currentUserId,    // ✅ MUST MATCH DB
-                HouseId = currentHouseId   // ✅ MUST MATCH DB
+                UserId = currentUserId,   
+                HouseId = currentHouseId   
             };
 
             try
